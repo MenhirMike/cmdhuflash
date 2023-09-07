@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO.Ports;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.IO.Ports;
 
 namespace cmdhuflash
 {
@@ -11,15 +6,23 @@ namespace cmdhuflash
     {
         public readonly static int FlashSizeBytes = 1_048_576;
 
-        public static bool FlashRomToCard(string romFileName, string portName, bool swapBits, Action<string> logMethod)
-            => FlashRomToCard(LoadRomFile(romFileName), portName, swapBits, logMethod);
+        /// <summary>
+        /// The only command that the Flash HuCard understands
+        /// </summary>
+        private const byte CommandByte = 0x5A;
 
-        public static bool FlashRomToCard(byte[] bytes, string portName, bool swapBits, Action<string> logMethod)
+        /// <summary>
+        /// The documentation says to use 0xFF if needing to fill up a data packet
+        /// </summary>
+        private const byte FillerByte = 0xFF;
+
+        public static bool FlashRomToCard(string romFileName, string portName, bool swapBits, Action<string> logAction)
+            => FlashRomToCard(LoadRomFile(romFileName), portName, swapBits, logAction);
+
+        public static bool FlashRomToCard(byte[] bytes, string portName, bool swapBits, Action<string> logAction)
         {
             var totalBytes = bytes.Length;
-            var packetCount = totalBytes / 256;
-            var currentPacket = 0;
-
+            var packetCount = totalBytes / 256; // TODO: Handle bytes not being multiples of 256 - Math.Ceil
 
             var port = new SerialPort(portName, 256000, Parity.None, 8, StopBits.One);
             port.ReadBufferSize = 1024;
@@ -32,12 +35,52 @@ namespace cmdhuflash
                 port.Open();
                 if (port.IsOpen)
                 {
-                    logMethod($"Opened Port {port.PortName}, writing {packetCount} packets...");
+                    logAction($"Opened Port {port.PortName}, writing {packetCount} packets...");
 
                     bool receiveError = false;
                     for (int pIx = 0; pIx < packetCount; pIx++)
                     {
                         var packet = CreateDataPacket(bytes, pIx * 256, swapBits);
+                        if (pIx == 0)
+                        {
+                            logAction($"Erasing the Flash and writing Packet {pIx + 1} of {packetCount}...");
+                        }
+                        else
+                        {
+                            logAction($"Writing Packet {pIx + 1} of {packetCount}...");
+                        }
+
+                        var receiveBuffer = new byte[6];
+
+                        // 0x01 means success, 0x00 means error. No Error Code/additional information is returned
+                        // from the card in case of an error, these 6 bytes are everything we can get from the card.
+                        var expectedReceiveBuffer = new byte[6] { CommandByte, packet[1], packet[2], packet[3], 0x01, FillerByte };
+                        expectedReceiveBuffer[5] = CalculateChecksum(expectedReceiveBuffer, 1, 4);
+
+                        port.Write(packet, 0, packet.Length);
+
+                        // for some reason, port.Read(receiveBuffer, 0, 6) doesn't read all 6 bytes,
+                        // so read them one at a time.
+                        for (int i = 0; i < 6; i++)
+                        {
+                            receiveBuffer[i] = (byte)port.ReadByte();
+                        }
+
+                        for (int rIx = 0; rIx < expectedReceiveBuffer.Length; rIx++)
+                        {
+                            if (receiveBuffer[rIx] != expectedReceiveBuffer[rIx])
+                            {
+                                // Not short-circuiting here: If more than one byte is wrong, want to see all.
+                                logAction($"ERROR at receive index {rIx}, expected 0x{expectedReceiveBuffer[rIx]:X2}, got 0x{receiveBuffer[rIx]:X2}");
+                                receiveError = true;
+                            }
+                        }
+
+                        if (receiveError)
+                        {
+                            logAction("Aborting writing to the Flash HuCard.");
+                            return false;
+                        }
                     }
                 }
             }
@@ -48,7 +91,7 @@ namespace cmdhuflash
                     try
                     {
                         port.Close();
-                        logMethod($"Closed Port {port.PortName}");
+                        logAction($"Closed Port {port.PortName}");
                     }
                     catch { /* Nothing much do do here. */ }
                 }
@@ -61,16 +104,19 @@ namespace cmdhuflash
             var buffer = new byte[261];
             for (var ix = 0; ix < buffer.Length; ix++)
             {
-                buffer[ix] = 0xFF;
+                buffer[ix] = FillerByte;
             }
 
             (byte msb, byte middle, byte lsb) = AddressToBytes(offset);
 
-            buffer[0] = 0x5A; // Command Byte
-            buffer[1] = msb; // Address MSB
-            buffer[2] = middle; // Address Middle
-            buffer[3] = lsb; // Address LSB
+            buffer[0] = CommandByte;
+            buffer[1] = msb;
+            buffer[2] = middle;
+            buffer[3] = lsb;
 
+            // TODO: Handle cases where bytes isn't a perfect 256 boundary, so offset + i might
+            // actually cause an IndexOutOfRangeException. Can't happen until LoadRomBytes is patched
+            // to not check the 256 byte multiple.
             for (int i = 0; i < 256; i++)
             {
                 var b = bytes[offset + i];

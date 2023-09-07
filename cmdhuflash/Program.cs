@@ -49,8 +49,8 @@ namespace cmdhuflash
 
         private static void HandleFlashCommand(FileInfo file, string serialPortName, bool forJapan)
         {
-            var targetConsole = forJapan ? "Japanese PC Engine" : "NA TurboGrafx-16";
-            Console.WriteLine($"Flashing {file.Name} to Flash HuCard connected to {serialPortName}, for use in a {targetConsole}...");
+            var targetConsole = forJapan ? "Japanese PC Engine" : "North American TurboGrafx-16";
+            Console.WriteLine($"Flashing {file.Name} to Flash HuCard on {serialPortName}, for use in a {targetConsole}...");
 
             bool success = false;
             try
