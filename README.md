@@ -1,13 +1,15 @@
 # cmdhuflash
-Command Line Utility for the [Low-Cost Flash HuCard from gamingenterprisesinc.com](http://www.gamingenterprisesinc.com/Flash_HuCard/). Tested with a V2.0 card, based on the Flash HuCard Protocol Specification V1.0.
+Command Line Utility for the [Low-Cost Flash HuCard from gamingenterprisesinc.com](http://www.gamingenterprisesinc.com/Flash_HuCard/).
+
+Tested with a V2.0 card, based on the Flash HuCard Protocol Specification V1.0.
 
 ![V2.0 Flash HuCard](https://github.com/MenhirMike/cmdhuflash/assets/22442377/679613e4-6750-4cd9-9376-41208dc5a49c)
 
 # Usage
 
 * `cmdhuflash -l`: List all COM Ports
-* `cmdhuflash -f somefile.pce -p COM3`: Flash somefile.pce to COM3 for use in a North American Turbografx16
-* `cmdhuflash -f somefile.pce -p COM3 -j`: Flash somefile.pce to COM3 for use in a Japanese PC Engine (This reverses the data bits when writing to the flash card, because the flash card is keyed for the US TG16)
+* `cmdhuflash -f somefile.pce -p COM3`: Flash somefile.pce to COM3 for use in a North American TurboGrafx-16
+* `cmdhuflash -f somefile.pce -p COM3 -j`: Flash somefile.pce to COM3 for use in a Japanese PC Engine
 
 # FAQ
 
