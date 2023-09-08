@@ -179,19 +179,22 @@ public static class Flasher
         byte lsb = 0x00;
 
         // This is pretty inefficient, but it saves me the headache of dealing with endianness and all that fun stuff.
-        // It's fast enough for my purposes.
-        while (address > 0)
+        // It's fast enough for my purposes. unchecked because Overflows are intended and expected.
+        unchecked
         {
-            lsb++;
-            if (lsb == 0x00)
+            while (address > 0)
             {
-                middle++;
-                if (middle == 0x00)
+                lsb++;
+                if (lsb == 0x00)
                 {
-                    msb++;
+                    middle++;
+                    if (middle == 0x00)
+                    {
+                        msb++;
+                    }
                 }
+                address--;
             }
-            address--;
         }
 
         return (msb, middle, lsb);
